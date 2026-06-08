@@ -1,196 +1,266 @@
-import tkinter as tk
-from tkinter import messagebox, filedialog
+import sys
 import os
 import secrets
+import traceback
+from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
+from ui_grain import Ui_MainWindow 
 
+from crypto_engine.grain_v2 import Grain128AEADv2
 from key_management.wrapper import KeyManager
 from file_io.file_handler import FileHandler
+from utils.data_converters import hex_to_lsb_bits, lsb_bits_to_hex, string_to_lsb_bits, lsb_bits_to_string
 
-# --- 统一的 UI 配色方案 (深色极客风) ---
-BG_COLOR = "#2C3E50"      # 主背景深灰蓝
-PANEL_BG = "#34495E"      # 面板底色
-TEXT_FG = "#ECF0F1"       # 文字白
-BTN_COLOR = "#2980B9"     # 按钮蓝
-BTN_ACTION = "#16A085"    # 重点操作按钮绿
-HL_COLOR = "#E67E22"      # 高亮橙色
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
-class GrainApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("GRAIN-128AEAD Software Suite - By XMUM Cyber Security")
-        self.root.geometry("1000x750") 
-        self.root.configure(bg=BG_COLOR)
-
-        if not os.path.exists("data"):
-            os.makedirs("data")
+class GrainApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
+        self.setWindowTitle("Grain-128AEAD Cipher Console")
 
         self.key_manager = KeyManager()
+        self.file_handler = FileHandler()
 
-        # ==========================================
-        # 核心布局：左右两大列 (完全匹配 Figure 1)
-        # ==========================================
-        main_container = tk.Frame(self.root, bg=BG_COLOR)
-        main_container.pack(fill="both", expand=True, padx=10, pady=10)
+        self.load_stylesheet("style.qss")
+        self.connect_signals()
 
-        left_col = tk.Frame(main_container, bg=BG_COLOR)
-        left_col.pack(side="left", fill="both", expand=True, padx=(0, 5))
+    def load_stylesheet(self, filename):
+        qss_path = resource_path(filename)
+        try:
+            with open(qss_path, "r", encoding="utf-8") as f:
+                self.setStyleSheet(f.read())
+        except FileNotFoundError:
+            pass
 
-        right_col = tk.Frame(main_container, bg=BG_COLOR)
-        right_col.pack(side="right", fill="both", expand=True, padx=(5, 0))
-
-        # 依次初始化四大区块
-        self.setup_block_1_key(left_col)
-        self.setup_block_4_monitor(left_col)
+    def connect_signals(self):
+        # 区块 1
+        self.ui.btn_generate_key.clicked.connect(self.logic_generate_key)
+        self.ui.btn_wrap_save.clicked.connect(self.logic_wrap_key)
+        self.ui.btn_load_key.clicked.connect(self.logic_unwrap_key)
         
-        self.setup_block_2_iv(right_col)
-        self.setup_block_3_workflow(right_col)
+        # 区块 2
+        self.ui.btn_generate_iv.clicked.connect(self.logic_generate_iv)
 
-    # ==========================================
-    # 区块 1: KEY MANAGEMENT (左上)
-    # ==========================================
-    def setup_block_1_key(self, parent):
-        frame = tk.LabelFrame(parent, text=" 1 KEY MANAGEMENT (128-bit Secret Key, K_Grain) ", 
-                              bg=PANEL_BG, fg=HL_COLOR, font=("Arial", 10, "bold"))
-        frame.pack(fill="x", pady=(0, 10), ipady=5)
+        # 区块 3 (文件)
+        self.ui.btn_file_load.clicked.connect(self.logic_file_load)
+        self.ui.btn_file_save.clicked.connect(self.logic_file_save_dir)
+        self.ui.btn_file_encrypt.clicked.connect(self.logic_file_encrypt)
+        self.ui.btn_file_decrypt.clicked.connect(self.logic_file_decrypt)
 
-        tk.Label(frame, text="Hex Key Input (K_Grain)", bg=PANEL_BG, fg=TEXT_FG).grid(row=0, column=0, sticky="w", padx=10)
-        self.entry_grain_key = tk.Entry(frame, width=38, bg="#1A252F", fg=TEXT_FG, insertbackground="white")
-        self.entry_grain_key.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        # 区块 3 (手动)
+        self.ui.btn_manual_encrypt.clicked.connect(self.logic_manual_encrypt)
+        self.ui.btn_manual_decrypt.clicked.connect(self.logic_manual_decrypt)
+
+        # UI联动互锁机制
+        self.ui.radioButton_4.toggled.connect(self.toggle_file_buttons)
+        self.ui.radioButton_5.toggled.connect(self.toggle_file_buttons)
+        self.ui.radio_manual_encypt.toggled.connect(self.toggle_manual_buttons)
+        self.ui.radio_manual_decrypt.toggled.connect(self.toggle_manual_buttons)
+
+        self.ui.radioButton_4.setChecked(True)
+        self.ui.radio_manual_encypt.setChecked(True)
+        self.toggle_file_buttons()
+        self.toggle_manual_buttons()
+
+    def toggle_file_buttons(self):
+        is_encrypt = self.ui.radioButton_4.isChecked()
+        self.ui.btn_file_encrypt.setEnabled(is_encrypt)
+        self.ui.btn_file_decrypt.setEnabled(not is_encrypt)
+
+    def toggle_manual_buttons(self):
+        is_encrypt = self.ui.radio_manual_encypt.isChecked()
+        self.ui.btn_manual_encrypt.setEnabled(is_encrypt)
+        self.ui.btn_manual_decrypt.setEnabled(not is_encrypt)
+
+    # ================= 辅助函数 =================
+    def show_error(self, title, exception_obj):
+        error_details = traceback.format_exc()
+        print(f"\n{'='*20} ❌ {title} {'='*20}")
+        print(error_details)
+        print("========================================================\n")
         
-        tk.Button(frame, text="GENERATE KEY", bg=BTN_COLOR, fg="white", font=("Arial", 9, "bold"), 
-                  command=self.generate_key).grid(row=1, column=1, padx=5)
+        error_msg = str(exception_obj).strip()
+        if "non-hexadecimal" in error_msg:
+            error_msg = "输入了非法的十六进制字符 (请检查是否混入了普通字母或多余空格)！"
+        elif not error_msg: 
+            # 强制抓取对象的原生描述，解决弹窗没字的问题
+            error_msg = repr(exception_obj) 
+            
+        QMessageBox.critical(self, title, f"操作失败！\n\n简述原因: {error_msg}\n\n(详尽报错日志已打印至控制台终端，请切换查看)")
 
-        # 打包区
-        wrap_frame = tk.LabelFrame(frame, text=" KEY WRAPPING & STORAGE ", bg=PANEL_BG, fg=TEXT_FG)
-        wrap_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
-
-        tk.Label(wrap_frame, text="Password for Wrapping", bg=PANEL_BG, fg=TEXT_FG).grid(row=0, column=0, sticky="w")
-        self.entry_password = tk.Entry(wrap_frame, show="*", width=20, bg="#1A252F", fg=TEXT_FG)
-        self.entry_password.grid(row=1, column=0, padx=5, sticky="w")
-
-        tk.Label(wrap_frame, text="Associated Data (AD)", bg=PANEL_BG, fg=TEXT_FG).grid(row=0, column=1, sticky="w")
-        self.entry_ad = tk.Entry(wrap_frame, width=20, bg="#1A252F", fg=TEXT_FG)
-        self.entry_ad.grid(row=1, column=1, padx=5, sticky="w")
-
-        tk.Button(wrap_frame, text="🔒 WRAP & SAVE .KEY FILE", bg=BTN_ACTION, fg="white", 
-                  command=self.wrap_and_save).grid(row=2, column=0, pady=10, padx=5, sticky="we")
-        tk.Button(wrap_frame, text="📂 LOAD .KEY FILE", bg=BTN_ACTION, fg="white", 
-                  command=self.load_and_unwrap).grid(row=2, column=1, pady=10, padx=5, sticky="we")
-
-    # ==========================================
-    # 区块 4: ALGORITHM INTERNAL STATES MONITOR (左下)
-    # ==========================================
-    def setup_block_4_monitor(self, parent):
-        frame = tk.LabelFrame(parent, text=" 4 ALGORITHM INTERNAL STATES MONITOR ", 
-                              bg=PANEL_BG, fg=HL_COLOR, font=("Arial", 10, "bold"))
-        frame.pack(fill="both", expand=True)
-
-        tk.Label(frame, text="States After Loading", bg=PANEL_BG, fg=TEXT_FG).pack(anchor="w", padx=10, pady=(10,0))
-        self.entry_nfsr_load = tk.Entry(frame, width=45, state="readonly")
-        self.entry_nfsr_load.pack(padx=10, pady=2)
-        self.entry_lfsr_load = tk.Entry(frame, width=45, state="readonly")
-        self.entry_lfsr_load.pack(padx=10, pady=2)
-
-        tk.Label(frame, text="States After Initialization", bg=PANEL_BG, fg=TEXT_FG).pack(anchor="w", padx=10, pady=(10,0))
-        self.entry_nfsr_init = tk.Entry(frame, width=45, state="readonly")
-        self.entry_nfsr_init.pack(padx=10, pady=2)
-        self.entry_lfsr_init = tk.Entry(frame, width=45, state="readonly")
-        self.entry_lfsr_init.pack(padx=10, pady=2)
-
-    # ==========================================
-    # 区块 2: NONCE/IV MANAGEMENT (右上)
-    # ==========================================
-    def setup_block_2_iv(self, parent):
-        frame = tk.LabelFrame(parent, text=" 2 NONCE/IV MANAGEMENT (96-bit, V_Grain) ", 
-                              bg=PANEL_BG, fg=HL_COLOR, font=("Arial", 10, "bold"))
-        frame.pack(fill="x", pady=(0, 10), ipady=5)
-
-        tk.Label(frame, text="Hex Nonce Input (V_Grain)", bg=PANEL_BG, fg=TEXT_FG).grid(row=0, column=0, sticky="w", padx=10)
-        self.entry_iv = tk.Entry(frame, width=38, bg="#1A252F", fg=TEXT_FG, insertbackground="white")
-        self.entry_iv.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+    def _prepare_engine(self):
+        key_hex = self.ui.input_key.text().strip().replace("0x", "")
+        iv_hex = self.ui.input_iv.text().strip().replace("0x", "")
         
-        tk.Button(frame, text="GENERATE IV", bg=BTN_COLOR, fg="white", font=("Arial", 9, "bold"), 
-                  command=self.generate_iv).grid(row=1, column=1, padx=5)
+        if len(key_hex) != 32:
+            raise ValueError(f"Key 长度错误！必须是32位Hex字符(128-bit)，当前为 {len(key_hex)} 位。")
+        if len(iv_hex) != 24:
+            raise ValueError(f"IV 长度错误！必须是24位Hex字符(96-bit)，当前为 {len(iv_hex)} 位。")
+            
+        key_bits = hex_to_lsb_bits(key_hex)
+        iv_bits = hex_to_lsb_bits(iv_hex)
 
-    # ==========================================
-    # 区块 3: ENCRYPTION & DECRYPTION WORKFLOWS (右下)
-    # ==========================================
-    def setup_block_3_workflow(self, parent):
-        frame = tk.LabelFrame(parent, text=" 3 ENCRYPTION & DECRYPTION WORKFLOWS ", 
-                              bg=PANEL_BG, fg=HL_COLOR, font=("Arial", 10, "bold"))
-        frame.pack(fill="both", expand=True)
-
-        # 顶部的动作按钮区
-        action_frame = tk.Frame(frame, bg=PANEL_BG)
-        action_frame.pack(fill="x", padx=10, pady=10)
+        engine = Grain128AEADv2()
         
-        tk.Button(action_frame, text="LOAD PLAINTEXT FILE (for Enc.)", bg=BTN_COLOR, fg="white").grid(row=0, column=0, padx=5, pady=5)
-        tk.Button(action_frame, text="LOAD .ENC FILE (for Dec.)", bg=BTN_COLOR, fg="white").grid(row=1, column=0, padx=5, pady=5)
+        engine.load_key_and_iv(key_bits, iv_bits)
+        self.ui.state_nfsr_load.setText("0x" + lsb_bits_to_hex(engine.NFSR)[2:].zfill(32))
+        self.ui.state_lfsr_load.setText("0x" + lsb_bits_to_hex(engine.LFSR)[2:].zfill(32))
         
-        tk.Button(action_frame, text="🔥 ENCRYPT", bg="#E74C3C", fg="white", font=("Arial", 10, "bold"), width=15,
-                  command=self.do_encrypt).grid(row=0, column=1, padx=20, rowspan=2, ipady=10)
+        engine.initialise()
+        self.ui.state_nfsr_init.setText("0x" + lsb_bits_to_hex(engine.NFSR)[2:].zfill(32))
+        self.ui.state_lfsr_init.setText("0x" + lsb_bits_to_hex(engine.LFSR)[2:].zfill(32))
+        
+        return engine
 
-        # 输入输出文本框区
-        tk.Label(frame, text="Manual Input (Plaintext / Ciphertext)", bg=PANEL_BG, fg=TEXT_FG).pack(anchor="w", padx=10)
-        self.text_input = tk.Text(frame, height=5, bg="#1A252F", fg=TEXT_FG, insertbackground="white")
-        self.text_input.pack(fill="x", padx=10, pady=5)
+    # ================= 核心业务逻辑 =================
 
-        tk.Label(frame, text="Output Terminal (Hex / ASCII)", bg=PANEL_BG, fg=TEXT_FG).pack(anchor="w", padx=10)
-        self.text_output = tk.Text(frame, height=5, bg="#1A252F", fg="#2ECC71", insertbackground="white")
-        self.text_output.pack(fill="x", padx=10, pady=5)
+    def logic_generate_key(self):
+        self.ui.input_key.setText("0x" + self.key_manager.generate_random_key_hex())
 
-        # 底部保存按钮
-        save_frame = tk.Frame(frame, bg=PANEL_BG)
-        save_frame.pack(fill="x", padx=10, pady=10)
-        tk.Button(save_frame, text="💾 SAVE .ENC FILE", bg=BTN_ACTION, fg="white").pack(side="left", expand=True, fill="x", padx=5)
-        tk.Button(save_frame, text="💾 SAVE .DEC FILE", bg=BTN_ACTION, fg="white").pack(side="right", expand=True, fill="x", padx=5)
+    def logic_generate_iv(self):
+        if self.ui.check_auto_iv.isChecked():
+            self.ui.input_iv.setText("0x" + secrets.token_hex(12)) 
+        else:
+            QMessageBox.warning(self, "操作被拒", "必须先勾选 'Automatically Generate unique IV' 才能自动生成。")
 
-    # ==========================================
-    # 基础逻辑绑定
-    # ==========================================
-    def generate_key(self):
-        self.entry_grain_key.delete(0, tk.END)
-        self.entry_grain_key.insert(0, self.key_manager.generate_random_key_hex())
+    def logic_wrap_key(self):
+        try:
+            pwd = self.ui.input_password.text()
+            key_hex = self.ui.input_key.text()
+            ad = self.ui.input_ad.text().strip()
+            
+            if not pwd or not key_hex:
+                raise ValueError("Password 和 Key 不能为空。")
+            
+            is_hex = (self.ui.combo_ad_mode.currentText() == "Hex")
+            
+            if is_hex and ad:
+                try:
+                    bytes.fromhex(ad.replace("0x", ""))
+                except ValueError:
+                    raise ValueError("AD 格式冲突：您选择了 Hex 模式，但输入了非十六进制的普通字符！")
 
-    def generate_iv(self):
-        # IV 是 96-bit，对应 12 bytes = 24 个十六进制字符
-        self.entry_iv.delete(0, tk.END)
-        self.entry_iv.insert(0, secrets.token_hex(12))
+            wrapped_data = self.key_manager.wrap_key(pwd, key_hex, ad, is_hex)
+            
+            save_path, _ = QFileDialog.getSaveFileName(self, "Save Wrapped Key", "", "Key Files (*.key)")
+            if save_path:
+                # 强制补全后缀
+                if not save_path.endswith(".key"):
+                    save_path += ".key"
+                self.file_handler.save_key_file(wrapped_data, save_path)
+                QMessageBox.information(self, "成功", "密钥已成功加密(Wrap)并保存到文件！")
+        except Exception as e:
+            self.show_error("Key Wrapping 失败", e)
 
-    def wrap_and_save(self):
-        key = self.entry_grain_key.get().strip()
-        pwd = self.entry_password.get().strip()
-        ad = self.entry_ad.get().strip()
-        if not key or not pwd:
-            messagebox.showerror("Error", "Key and Password required!")
-            return
-        filepath = filedialog.asksaveasfilename(initialdir="data", defaultextension=".key")
-        if filepath:
-            FileHandler.save_key_file(self.key_manager.wrap_key(pwd, key, ad), filepath)
-            messagebox.showinfo("Success", "Key wrapped and saved!")
+    def logic_unwrap_key(self):
+        try:
+            pwd = self.ui.input_password.text()
+            ad = self.ui.input_ad.text().strip()
+            
+            if not pwd:
+                raise ValueError("解密 Key 文件必须输入 Password。")
+                
+            load_path, _ = QFileDialog.getOpenFileName(self, "Load Wrapped Key", "", "Key Files (*.key)")
+            if load_path:
+                is_hex = (self.ui.combo_ad_mode.currentText() == "Hex")
+                key_data = self.file_handler.load_key_file(load_path)
+                unwrapped_key_hex = self.key_manager.unwrap_key(pwd, key_data, ad, is_hex)
+                
+                self.ui.input_key.setText("0x" + unwrapped_key_hex)
+                QMessageBox.information(self, "成功", "密钥已从文件中解密(Unwrap)并加载至控制台。")
+        except Exception as e:
+            self.show_error("Key Unwrapping 失败", e)
 
-    def load_and_unwrap(self):
-        pwd = self.entry_password.get().strip()
-        ad = self.entry_ad.get().strip()
-        if not pwd:
-            messagebox.showerror("Error", "Password required!")
-            return
-        filepath = filedialog.askopenfilename(initialdir="data", filetypes=[("Key Files", "*.key")])
-        if filepath:
-            try:
-                rec_key = self.key_manager.unwrap_key(pwd, FileHandler.load_key_file(filepath), ad)
-                self.entry_grain_key.delete(0, tk.END)
-                self.entry_grain_key.insert(0, rec_key)
-                messagebox.showinfo("Success", "Key Unwrapped!")
-            except Exception as e:
-                messagebox.showerror("Error", str(e))
+    def logic_manual_encrypt(self):
+        try:
+            input_text = self.ui.text_manual_input.toPlainText()
+            if not input_text: raise ValueError("请输入需要加密的 ASCII 明文。")
+            
+            engine = self._prepare_engine()
+            msg_bits = string_to_lsb_bits(input_text)
+            cipher_bits = engine.encrypt(msg_bits)
+            
+            self.ui.text_manual_output.setText(lsb_bits_to_hex(cipher_bits))
+        except Exception as e:
+            self.show_error("手动加密崩溃", e)
 
-    def do_encrypt(self):
-        # 这里预留给下一步接入 Grain 引擎！
-        messagebox.showinfo("Wait!", "界面已经就绪！下一步我们将把 Grain 引擎接入这个按钮，进行真正的加密！")
+    def logic_manual_decrypt(self):
+        try:
+            input_hex = self.ui.text_manual_input.toPlainText().strip()
+            if not input_hex: raise ValueError("请输入需要解密的 HEX 密文。")
+            
+            engine = self._prepare_engine()
+            cipher_bits = hex_to_lsb_bits(input_hex)
+            msg_bits = engine.decrypt(cipher_bits)
+            
+            self.ui.text_manual_output.setText(lsb_bits_to_string(msg_bits))
+        except Exception as e:
+            self.show_error("手动解密崩溃", e)
 
+    def logic_file_load(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, "Select Input File", "", "All Files (*)")
+        if file_name: self.ui.input_file_path.setText(file_name)
+
+    def logic_file_save_dir(self):
+        is_encrypt = self.ui.radioButton_4.isChecked()
+        dialog_title = "设置保存路径 (加密文件)" if is_encrypt else "设置保存路径 (解密文件)"
+        file_filter = "Encrypted Files (*.enc)" if is_encrypt else "Decrypted Files (*.dec)"
+        
+        file_name, _ = QFileDialog.getSaveFileName(self, dialog_title, "", file_filter)
+        if file_name:
+            # 强制按模式补全相应的后缀
+            if is_encrypt and not file_name.endswith(".enc"):
+                file_name += ".enc"
+            elif not is_encrypt and not file_name.endswith(".dec"):
+                file_name += ".dec"
+            self.ui.output_file_path.setText(file_name)
+
+    def logic_file_encrypt(self):
+        try:
+            in_path = self.ui.input_file_path.text()
+            out_path = self.ui.output_file_path.text()
+            if not in_path or not out_path: raise ValueError("请先设置输入和输出路径！")
+            
+            engine = self._prepare_engine()
+            with open(in_path, 'r', encoding='utf-8') as f:
+                plaintext = f.read()
+                
+            msg_bits = string_to_lsb_bits(plaintext)
+            cipher_bits = engine.encrypt(msg_bits)
+            cipher_hex = lsb_bits_to_hex(cipher_bits)
+            
+            self.file_handler.save_encrypted_file(self.ui.input_iv.text(), cipher_hex, out_path)
+            QMessageBox.information(self, "成功", "文件加密并打包IV成功！")
+        except Exception as e:
+            self.show_error("文件加密失败", e)
+
+    def logic_file_decrypt(self):
+        try:
+            in_path = self.ui.input_file_path.text()
+            out_path = self.ui.output_file_path.text()
+            if not in_path or not out_path: raise ValueError("请先设置输入和输出路径！")
+            
+            loaded_iv, cipher_hex = self.file_handler.load_encrypted_file(in_path)
+            self.ui.input_iv.setText(loaded_iv) 
+            
+            engine = self._prepare_engine()
+            cipher_bits = hex_to_lsb_bits(cipher_hex)
+            msg_bits = engine.decrypt(cipher_bits)
+            plaintext = lsb_bits_to_string(msg_bits)
+            
+            self.file_handler.save_decrypted_file(plaintext, out_path)
+            QMessageBox.information(self, "成功", "文件解密成功！")
+        except Exception as e:
+            self.show_error("文件解密失败", e)
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = GrainApp(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = GrainApp()
+    window.show()
+    sys.exit(app.exec())

@@ -1,0 +1,95 @@
+QMainWindow {
+    background-color: #1e1e39;
+}
+QGroupBox {
+    color: #f1edff;
+    border: 1px solid #4c4a68;
+    border-radius: 5px;
+    margin-top: 2ex;
+    font-weight: bold;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+}
+QLabel, QRadioButton {
+    color: #f1edff;
+}
+QLineEdit, QTextEdit, QComboBox {
+    background-color: #11111b;
+    color: #56ecc3;
+    border: 1px solid #4c4a68;
+    border-radius: 3px;
+    padding: 4px;
+}
+QLineEdit[readOnly="true"], QTextEdit[readOnly="true"] {
+    background-color: #181825;
+    color: #56ecc3;
+}
+
+QPushButton {
+    background-color: #313244;
+    color: #f1edff;
+    border: 1px solid #4c4a68;
+    border-radius: 4px;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #45475a;
+}
+QPushButton#btn_file_encrypt, QPushButton#btn_manual_encrypt {
+    background-color: #00c894;
+    color: #11111b;
+}
+QPushButton#btn_file_decrypt, QPushButton#btn_manual_decrypt {
+    background-color: #c8fcea;
+    color: #11111b;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #11111b; 
+    color: #56ecc3;
+    border: 1px solid #4c4a68;
+    selection-background-color: #313244;
+    selection-color: #f1edff;
+    outline: none;
+}
+
+QRadioButton::indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 8px;
+    border: 2px solid #8e8ca8;
+    background-color: transparent;
+}
+
+
+QRadioButton::indicator:hover {
+    border: 2px solid #56ecc3;
+}
+
+
+QRadioButton::indicator:checked {
+    border: 2px solid #00c894;
+    background-color: qradialgradient(
+        cx:0.5, cy:0.5, radius:0.4, fx:0.5, fy:0.5, 
+        stop:0 #00c894,
+        stop:0.55 #00c894,
+        stop:0.65 transparent,
+        stop:1 transparent
+    );
+}
+
+QMessageBox {
+    background-color: #1e1e39;
+}
+QMessageBox QLabel {
+    color: #f1edff;
+    font-size: 13px;
+}
+QMessageBox QPushButton {
+    min-width: 80px;
+}
