@@ -1,129 +1,195 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
 import os
+import secrets
 
-# 导入我们的底层核心模块
 from key_management.wrapper import KeyManager
 from file_io.file_handler import FileHandler
+
+# --- 统一的 UI 配色方案 (深色极客风) ---
+BG_COLOR = "#2C3E50"      # 主背景深灰蓝
+PANEL_BG = "#34495E"      # 面板底色
+TEXT_FG = "#ECF0F1"       # 文字白
+BTN_COLOR = "#2980B9"     # 按钮蓝
+BTN_ACTION = "#16A085"    # 重点操作按钮绿
+HL_COLOR = "#E67E22"      # 高亮橙色
 
 class GrainApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("GRAIN-128AEAD Software Suite")
-        self.root.geometry("850x650") # 设置窗口大小
-        
-        # 响应你的好习惯：确保 data 文件夹存在，作为我们的默认工作目录
+        self.root.title("GRAIN-128AEAD Software Suite - By XMUM Cyber Security")
+        self.root.geometry("1000x750") 
+        self.root.configure(bg=BG_COLOR)
+
         if not os.path.exists("data"):
             os.makedirs("data")
 
-        # 实例化我们的密钥管家
         self.key_manager = KeyManager()
 
         # ==========================================
-        # 区块 1: KEY MANAGEMENT (密钥管理)
+        # 核心布局：左右两大列 (完全匹配 Figure 1)
         # ==========================================
-        self.setup_block_1()
+        main_container = tk.Frame(self.root, bg=BG_COLOR)
+        main_container.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def setup_block_1(self):
-        # 创建区块 1 的主边框
-        frame1 = tk.LabelFrame(self.root, text="1 KEY MANAGEMENT (128-bit Secret Key)", padx=10, pady=10)
-        frame1.grid(row=0, column=0, padx=10, pady=10, sticky="nw")
+        left_col = tk.Frame(main_container, bg=BG_COLOR)
+        left_col.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
-        # --- 第一行：主密钥输入框与生成按钮 ---
-        tk.Label(frame1, text="Hex Key Input (K_Grain)").grid(row=0, column=0, sticky="w")
-        self.entry_grain_key = tk.Entry(frame1, width=35)
-        self.entry_grain_key.grid(row=1, column=0, pady=5, sticky="w")
+        right_col = tk.Frame(main_container, bg=BG_COLOR)
+        right_col.pack(side="right", fill="both", expand=True, padx=(5, 0))
+
+        # 依次初始化四大区块
+        self.setup_block_1_key(left_col)
+        self.setup_block_4_monitor(left_col)
         
-        btn_gen_key = tk.Button(frame1, text="GENERATE KEY", bg="teal", fg="white", command=self.generate_key)
-        btn_gen_key.grid(row=1, column=1, padx=10)
-
-        # --- 第二行：密钥打包与存储 (内部子框) ---
-        wrap_frame = tk.LabelFrame(frame1, text="KEY WRAPPING & STORAGE", padx=10, pady=10)
-        wrap_frame.grid(row=2, column=0, columnspan=2, pady=10, sticky="ew")
-
-        # 密码输入区
-        tk.Label(wrap_frame, text="Password for Wrapping").grid(row=0, column=0, sticky="w")
-        self.entry_password = tk.Entry(wrap_frame, show="*", width=20)
-        self.entry_password.grid(row=1, column=0, sticky="w", padx=5)
-
-        # 附加数据 (AD) 输入区
-        tk.Label(wrap_frame, text="Associated Data (AD)").grid(row=0, column=1, sticky="w")
-        self.entry_ad = tk.Entry(wrap_frame, width=20)
-        self.entry_ad.grid(row=1, column=1, sticky="w", padx=5)
-
-        # AD 格式选择 (HEX / Text)
-        self.ad_mode_var = tk.StringVar(value="Text")
-        radio_frame = tk.Frame(wrap_frame)
-        radio_frame.grid(row=2, column=1, sticky="w", pady=5)
-        tk.Label(radio_frame, text="Input Mode:").pack(side="left")
-        tk.Radiobutton(radio_frame, text="HEX", variable=self.ad_mode_var, value="HEX").pack(side="left")
-        tk.Radiobutton(radio_frame, text="Text", variable=self.ad_mode_var, value="Text").pack(side="left")
-
-        # 保存与加载按钮
-        btn_wrap = tk.Button(wrap_frame, text="WRAP & SAVE .KEY FILE", command=self.wrap_and_save)
-        btn_wrap.grid(row=3, column=0, pady=10, padx=5, sticky="we")
-
-        btn_load = tk.Button(wrap_frame, text="LOAD .KEY FILE", command=self.load_and_unwrap)
-        btn_load.grid(row=3, column=1, pady=10, padx=5, sticky="we")
+        self.setup_block_2_iv(right_col)
+        self.setup_block_3_workflow(right_col)
 
     # ==========================================
-    # 按钮绑定的功能逻辑 (连接前几个阶段的成果)
+    # 区块 1: KEY MANAGEMENT (左上)
+    # ==========================================
+    def setup_block_1_key(self, parent):
+        frame = tk.LabelFrame(parent, text=" 1 KEY MANAGEMENT (128-bit Secret Key, K_Grain) ", 
+                              bg=PANEL_BG, fg=HL_COLOR, font=("Arial", 10, "bold"))
+        frame.pack(fill="x", pady=(0, 10), ipady=5)
+
+        tk.Label(frame, text="Hex Key Input (K_Grain)", bg=PANEL_BG, fg=TEXT_FG).grid(row=0, column=0, sticky="w", padx=10)
+        self.entry_grain_key = tk.Entry(frame, width=38, bg="#1A252F", fg=TEXT_FG, insertbackground="white")
+        self.entry_grain_key.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        
+        tk.Button(frame, text="GENERATE KEY", bg=BTN_COLOR, fg="white", font=("Arial", 9, "bold"), 
+                  command=self.generate_key).grid(row=1, column=1, padx=5)
+
+        # 打包区
+        wrap_frame = tk.LabelFrame(frame, text=" KEY WRAPPING & STORAGE ", bg=PANEL_BG, fg=TEXT_FG)
+        wrap_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+
+        tk.Label(wrap_frame, text="Password for Wrapping", bg=PANEL_BG, fg=TEXT_FG).grid(row=0, column=0, sticky="w")
+        self.entry_password = tk.Entry(wrap_frame, show="*", width=20, bg="#1A252F", fg=TEXT_FG)
+        self.entry_password.grid(row=1, column=0, padx=5, sticky="w")
+
+        tk.Label(wrap_frame, text="Associated Data (AD)", bg=PANEL_BG, fg=TEXT_FG).grid(row=0, column=1, sticky="w")
+        self.entry_ad = tk.Entry(wrap_frame, width=20, bg="#1A252F", fg=TEXT_FG)
+        self.entry_ad.grid(row=1, column=1, padx=5, sticky="w")
+
+        tk.Button(wrap_frame, text="🔒 WRAP & SAVE .KEY FILE", bg=BTN_ACTION, fg="white", 
+                  command=self.wrap_and_save).grid(row=2, column=0, pady=10, padx=5, sticky="we")
+        tk.Button(wrap_frame, text="📂 LOAD .KEY FILE", bg=BTN_ACTION, fg="white", 
+                  command=self.load_and_unwrap).grid(row=2, column=1, pady=10, padx=5, sticky="we")
+
+    # ==========================================
+    # 区块 4: ALGORITHM INTERNAL STATES MONITOR (左下)
+    # ==========================================
+    def setup_block_4_monitor(self, parent):
+        frame = tk.LabelFrame(parent, text=" 4 ALGORITHM INTERNAL STATES MONITOR ", 
+                              bg=PANEL_BG, fg=HL_COLOR, font=("Arial", 10, "bold"))
+        frame.pack(fill="both", expand=True)
+
+        tk.Label(frame, text="States After Loading", bg=PANEL_BG, fg=TEXT_FG).pack(anchor="w", padx=10, pady=(10,0))
+        self.entry_nfsr_load = tk.Entry(frame, width=45, state="readonly")
+        self.entry_nfsr_load.pack(padx=10, pady=2)
+        self.entry_lfsr_load = tk.Entry(frame, width=45, state="readonly")
+        self.entry_lfsr_load.pack(padx=10, pady=2)
+
+        tk.Label(frame, text="States After Initialization", bg=PANEL_BG, fg=TEXT_FG).pack(anchor="w", padx=10, pady=(10,0))
+        self.entry_nfsr_init = tk.Entry(frame, width=45, state="readonly")
+        self.entry_nfsr_init.pack(padx=10, pady=2)
+        self.entry_lfsr_init = tk.Entry(frame, width=45, state="readonly")
+        self.entry_lfsr_init.pack(padx=10, pady=2)
+
+    # ==========================================
+    # 区块 2: NONCE/IV MANAGEMENT (右上)
+    # ==========================================
+    def setup_block_2_iv(self, parent):
+        frame = tk.LabelFrame(parent, text=" 2 NONCE/IV MANAGEMENT (96-bit, V_Grain) ", 
+                              bg=PANEL_BG, fg=HL_COLOR, font=("Arial", 10, "bold"))
+        frame.pack(fill="x", pady=(0, 10), ipady=5)
+
+        tk.Label(frame, text="Hex Nonce Input (V_Grain)", bg=PANEL_BG, fg=TEXT_FG).grid(row=0, column=0, sticky="w", padx=10)
+        self.entry_iv = tk.Entry(frame, width=38, bg="#1A252F", fg=TEXT_FG, insertbackground="white")
+        self.entry_iv.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        
+        tk.Button(frame, text="GENERATE IV", bg=BTN_COLOR, fg="white", font=("Arial", 9, "bold"), 
+                  command=self.generate_iv).grid(row=1, column=1, padx=5)
+
+    # ==========================================
+    # 区块 3: ENCRYPTION & DECRYPTION WORKFLOWS (右下)
+    # ==========================================
+    def setup_block_3_workflow(self, parent):
+        frame = tk.LabelFrame(parent, text=" 3 ENCRYPTION & DECRYPTION WORKFLOWS ", 
+                              bg=PANEL_BG, fg=HL_COLOR, font=("Arial", 10, "bold"))
+        frame.pack(fill="both", expand=True)
+
+        # 顶部的动作按钮区
+        action_frame = tk.Frame(frame, bg=PANEL_BG)
+        action_frame.pack(fill="x", padx=10, pady=10)
+        
+        tk.Button(action_frame, text="LOAD PLAINTEXT FILE (for Enc.)", bg=BTN_COLOR, fg="white").grid(row=0, column=0, padx=5, pady=5)
+        tk.Button(action_frame, text="LOAD .ENC FILE (for Dec.)", bg=BTN_COLOR, fg="white").grid(row=1, column=0, padx=5, pady=5)
+        
+        tk.Button(action_frame, text="🔥 ENCRYPT", bg="#E74C3C", fg="white", font=("Arial", 10, "bold"), width=15,
+                  command=self.do_encrypt).grid(row=0, column=1, padx=20, rowspan=2, ipady=10)
+
+        # 输入输出文本框区
+        tk.Label(frame, text="Manual Input (Plaintext / Ciphertext)", bg=PANEL_BG, fg=TEXT_FG).pack(anchor="w", padx=10)
+        self.text_input = tk.Text(frame, height=5, bg="#1A252F", fg=TEXT_FG, insertbackground="white")
+        self.text_input.pack(fill="x", padx=10, pady=5)
+
+        tk.Label(frame, text="Output Terminal (Hex / ASCII)", bg=PANEL_BG, fg=TEXT_FG).pack(anchor="w", padx=10)
+        self.text_output = tk.Text(frame, height=5, bg="#1A252F", fg="#2ECC71", insertbackground="white")
+        self.text_output.pack(fill="x", padx=10, pady=5)
+
+        # 底部保存按钮
+        save_frame = tk.Frame(frame, bg=PANEL_BG)
+        save_frame.pack(fill="x", padx=10, pady=10)
+        tk.Button(save_frame, text="💾 SAVE .ENC FILE", bg=BTN_ACTION, fg="white").pack(side="left", expand=True, fill="x", padx=5)
+        tk.Button(save_frame, text="💾 SAVE .DEC FILE", bg=BTN_ACTION, fg="white").pack(side="right", expand=True, fill="x", padx=5)
+
+    # ==========================================
+    # 基础逻辑绑定
     # ==========================================
     def generate_key(self):
-        """点击生成按钮：一键生成随机主密钥填入输入框"""
-        new_key = self.key_manager.generate_random_key_hex()
         self.entry_grain_key.delete(0, tk.END)
-        self.entry_grain_key.insert(0, new_key)
+        self.entry_grain_key.insert(0, self.key_manager.generate_random_key_hex())
+
+    def generate_iv(self):
+        # IV 是 96-bit，对应 12 bytes = 24 个十六进制字符
+        self.entry_iv.delete(0, tk.END)
+        self.entry_iv.insert(0, secrets.token_hex(12))
 
     def wrap_and_save(self):
-        """点击保存按钮：抓取界面的值 -> 打包 -> 弹窗保存文件"""
-        grain_key = self.entry_grain_key.get().strip()
-        password = self.entry_password.get().strip()
-        ad_data = self.entry_ad.get().strip()
-        is_hex = (self.ad_mode_var.get() == "HEX")
-
-        if not grain_key or not password:
-            messagebox.showerror("错误", "密钥和密码不能为空！")
+        key = self.entry_grain_key.get().strip()
+        pwd = self.entry_password.get().strip()
+        ad = self.entry_ad.get().strip()
+        if not key or not pwd:
+            messagebox.showerror("Error", "Key and Password required!")
             return
-
-        # 动用阶段三打包
-        key_dict = self.key_manager.wrap_key(password, grain_key, ad_data, ad_is_hex=is_hex)
-        
-        # 唤起系统的“保存文件”对话框 (默认指向 data 文件夹)
-        filepath = filedialog.asksaveasfilename(initialdir="data", defaultextension=".key", filetypes=[("Key Files", "*.key")])
+        filepath = filedialog.asksaveasfilename(initialdir="data", defaultextension=".key")
         if filepath:
-            # 动用阶段四代码落盘
-            FileHandler.save_key_file(key_dict, filepath)
-            messagebox.showinfo("成功", "主密钥已打包并存入 .key 文件！")
+            FileHandler.save_key_file(self.key_manager.wrap_key(pwd, key, ad), filepath)
+            messagebox.showinfo("Success", "Key wrapped and saved!")
 
     def load_and_unwrap(self):
-        """点击加载按钮：选文件 -> 校验密码和AD -> 吐出密钥填回框内"""
-        password = self.entry_password.get().strip()
-        ad_data = self.entry_ad.get().strip()
-        is_hex = (self.ad_mode_var.get() == "HEX")
-
-        if not password:
-            messagebox.showerror("错误", "解封文件前，必须先填写对应的 Password！")
+        pwd = self.entry_password.get().strip()
+        ad = self.entry_ad.get().strip()
+        if not pwd:
+            messagebox.showerror("Error", "Password required!")
             return
-
-        # 唤起系统的“打开文件”对话框
         filepath = filedialog.askopenfilename(initialdir="data", filetypes=[("Key Files", "*.key")])
-        if not filepath: return
+        if filepath:
+            try:
+                rec_key = self.key_manager.unwrap_key(pwd, FileHandler.load_key_file(filepath), ad)
+                self.entry_grain_key.delete(0, tk.END)
+                self.entry_grain_key.insert(0, rec_key)
+                messagebox.showinfo("Success", "Key Unwrapped!")
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
 
-        # GUI 层面需要使用 try-except 来捕捉由于密码错误导致的崩溃，转换为弹窗提示用户
-        try:
-            # 阶段四读取 + 阶段三解封
-            key_dict = FileHandler.load_key_file(filepath)
-            recovered_key = self.key_manager.unwrap_key(password, key_dict, ad_data, ad_is_hex=is_hex)
-            
-            # 还原成功，把它塞回第一个输入框里
-            self.entry_grain_key.delete(0, tk.END)
-            self.entry_grain_key.insert(0, recovered_key)
-            messagebox.showinfo("解封成功", "密码和AD验证通过，主密钥已重现！")
-        except Exception:
-            messagebox.showerror("拦截提醒", "解封失败！可能是密码或AD不对，或者文件被篡改。")
+    def do_encrypt(self):
+        # 这里预留给下一步接入 Grain 引擎！
+        messagebox.showinfo("Wait!", "界面已经就绪！下一步我们将把 Grain 引擎接入这个按钮，进行真正的加密！")
 
-# 启动图形化窗口
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = GrainApp(root)
