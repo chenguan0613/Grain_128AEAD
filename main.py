@@ -40,27 +40,25 @@ class GrainApp(QMainWindow):
             pass
 
     def connect_signals(self):
-        # 区块 1
+        #Key management block
         self.ui.btn_generate_key.clicked.connect(self.logic_generate_key)
         self.ui.btn_wrap_save.clicked.connect(self.logic_wrap_key)
         self.ui.btn_load_key.clicked.connect(self.logic_unwrap_key)
         self.ui.btn_generate_aes_nonce.clicked.connect(self.logic_generate_aes_nonce)
         self.ui.btn_generate_salt.clicked.connect(self.logic_generate_salt)
 
-        # 区块 2
+        #IV management block
         self.ui.btn_generate_iv.clicked.connect(self.logic_generate_iv)
 
-        # 区块 3 (文件)
+        #Encryption&Decryption Block
         self.ui.btn_file_load.clicked.connect(self.logic_file_load)
         self.ui.btn_file_save.clicked.connect(self.logic_file_save_dir)
         self.ui.btn_file_encrypt.clicked.connect(self.logic_file_encrypt)
         self.ui.btn_file_decrypt.clicked.connect(self.logic_file_decrypt)
-
-        # 区块 3 (手动)
         self.ui.btn_manual_encrypt.clicked.connect(self.logic_manual_encrypt)
         self.ui.btn_manual_decrypt.clicked.connect(self.logic_manual_decrypt)
 
-        # UI联动互锁机制
+        #UI Interlock Mechanism
         self.ui.radioButton_4.toggled.connect(self.toggle_file_buttons)
         self.ui.radioButton_5.toggled.connect(self.toggle_file_buttons)
         self.ui.radio_manual_encypt.toggled.connect(self.toggle_manual_buttons)
@@ -81,7 +79,6 @@ class GrainApp(QMainWindow):
         self.ui.btn_manual_encrypt.setEnabled(is_encrypt)
         self.ui.btn_manual_decrypt.setEnabled(not is_encrypt)
 
-    # ================= 辅助函数 =================
     def show_error(self, title, exception_obj):
         error_details = traceback.format_exc()
         print(f"\n{'='*20} {title} {'='*20}")
@@ -90,21 +87,20 @@ class GrainApp(QMainWindow):
         
         error_msg = str(exception_obj).strip()
         if "non-hexadecimal" in error_msg:
-            error_msg = "输入了非法的十六进制字符 (请检查是否混入了普通字母或多余空格)！"
+            error_msg = "An invalid hexadecimal character was entered (please check for any mixed-in letters or extra spaces)!"
         elif not error_msg: 
-            # 强制抓取对象的原生描述，解决弹窗没字的问题
             error_msg = repr(exception_obj) 
             
-        QMessageBox.critical(self, title, f"操作失败！\n\n简述原因: {error_msg}\n\n(详尽报错日志已打印至控制台终端，请切换查看)")
+        QMessageBox.critical(self, title, f"Operation failed! Brief reason: {error_msg} ")
 
     def _prepare_engine(self):
         key_hex = self.ui.input_key.text().strip().replace("0x", "")
         iv_hex = self.ui.input_iv.text().strip().replace("0x", "")
         
         if len(key_hex) != 32:
-            raise ValueError(f"Key 长度错误！必须是32位Hex字符(128-bit)，当前为 {len(key_hex)} 位。")
+            raise ValueError(f"Key length error! Must be 32-bit Hex characters (128-bit), currently {len(key_hex)} bits.")
         if len(iv_hex) != 24:
-            raise ValueError(f"IV 长度错误！必须是24位Hex字符(96-bit)，当前为 {len(iv_hex)} 位。")
+            raise ValueError(f"IV length error! Must be 24-bit Hex characters (96-bit), currently {len(iv_hex)} bits.")
             
         key_bits = hex_to_lsb_bits(key_hex)
         iv_bits = hex_to_lsb_bits(iv_hex)
@@ -121,8 +117,6 @@ class GrainApp(QMainWindow):
         
         return engine
 
-    # ================= 核心业务逻辑 =================
-
     def logic_generate_key(self):
         self.ui.input_key.setText("0x"+self.key_manager.generate_random_key_hex())
 
@@ -136,7 +130,7 @@ class GrainApp(QMainWindow):
         if self.ui.check_auto_iv.isChecked():
             self.ui.input_iv.setText("0x" + secrets.token_hex(12)) 
         else:
-            QMessageBox.warning(self, "操作被拒", "必须先勾选 'Automatically Generate unique IV' 才能自动生成。")
+            QMessageBox.warning(self, "Operation rejected", "You must check 'Automatically Generate unique IV' before it can be generated automatically.")
 
     def logic_wrap_key(self):
         try:
@@ -149,7 +143,7 @@ class GrainApp(QMainWindow):
             nonce_val=self.ui.input_aes_nonce.text().strip()
 
             if not pwd or not key_hex:
-                raise ValueError("Password 和 Key 不能为空。")
+                raise ValueError("Password 和 Key cannot be empty")
             
             is_hex = (self.ui.combo_ad_mode.currentText() == "Hex")
             
@@ -157,7 +151,7 @@ class GrainApp(QMainWindow):
                 try:
                     bytes.fromhex(ad.replace("0x", ""))
                 except ValueError:
-                    raise ValueError("AD 格式冲突：您选择了 Hex 模式，但输入了非十六进制的普通字符！")
+                    raise ValueError("AD format conflict: You selected Hex mode, but entered non-hexadecimal normal characters!")
 
             wrapped_data = self.key_manager.wrap_key(
                 password_str=pwd, 
@@ -180,18 +174,16 @@ class GrainApp(QMainWindow):
                 if not iters_val: auto_generated.append(f"Iteration Count: {wrapped_data['iterations']} times")
                 if not nonce_val: auto_generated.append(f"Nonce (AES-CCM): 0x{wrapped_data['nonce']}")
                 if auto_generated:
-                    # 如果有留空的项，明确告知用户系统代劳了
                     items_str = "\n• ".join(auto_generated)
-                    success_msg = (f"密钥已成功包裹并保存！\n\n"
-                    f"【系统提示】\n您未提供以下参数，系统为您自动生成了高强度安全值：\n"
+                    success_msg = (f"The key has been successfully wrapped and saved!\n\n"
+                    f"\nSince you did not provide the following parameters, the system automatically generated a high-strength security value for you:\n"
                                 f"• {items_str}\n\n"
-                                f"您可以打开 .key 文件查看这些由系统生成的最终数据。")
+                                f"You can open the .key file to view this final data generated by the system.")
                 else:
-                    #如果用户全都自己填了，给出完全自定义的反馈
-                    success_msg = "密钥已完全按照您输入的自定义参数包裹并保存！"
-                QMessageBox.information(self, "成功",success_msg)
+                    success_msg = "The key has been wrapped and saved exactly according to the custom parameters you entered!"
+                QMessageBox.information(self, "Success",success_msg)
         except Exception as e:
-            self.show_error("Key Wrapping 失败",e)
+            self.show_error("Key Wrapping faild",e)
 
     def logic_unwrap_key(self):
         try:
@@ -199,7 +191,7 @@ class GrainApp(QMainWindow):
             ad = self.ui.input_ad.text().strip()
             
             if not pwd:
-                raise ValueError("解密 Key 文件必须输入 Password。")
+                raise ValueError("A password must be entered to decrypt the key file.")
                 
             load_path, _ = QFileDialog.getOpenFileName(self, "Load Wrapped Key", "", "Key Files (*.key)")
             if load_path:
@@ -208,14 +200,14 @@ class GrainApp(QMainWindow):
                 unwrapped_key_hex = self.key_manager.unwrap_key(pwd, key_data, ad, is_hex)
                 
                 self.ui.input_key.setText("0x" + unwrapped_key_hex)
-                QMessageBox.information(self, "成功", "密钥已从文件中解密(Unwrap)并加载至控制台。")
+                QMessageBox.information(self, "Success", "The key has been decrypted (unwrapped) from the file and loaded into the console.")
         except Exception as e:
-            self.show_error("Key Unwrapping 失败", e)
+            self.show_error("Key Unwrapping faild", e)
 
     def logic_manual_encrypt(self):
         try:
             input_text = self.ui.text_manual_input.toPlainText()
-            if not input_text: raise ValueError("请输入需要加密的 ASCII 明文。")
+            if not input_text: raise ValueError("Please enter the plain ASCII text that you want to encrypt.")
             
             engine = self._prepare_engine()
             msg_bits = string_to_lsb_bits(input_text)
@@ -223,12 +215,12 @@ class GrainApp(QMainWindow):
             
             self.ui.text_manual_output.setText(lsb_bits_to_hex(cipher_bits))
         except Exception as e:
-            self.show_error("手动加密崩溃", e)
+            self.show_error("Manual encryption crash", e)
 
     def logic_manual_decrypt(self):
         try:
             input_hex = self.ui.text_manual_input.toPlainText().strip()
-            if not input_hex: raise ValueError("请输入需要解密的 HEX 密文。")
+            if not input_hex: raise ValueError("Please enter the HEX ciphertext you want to decrypt.")
             
             engine = self._prepare_engine()
             cipher_bits = hex_to_lsb_bits(input_hex)
@@ -236,7 +228,7 @@ class GrainApp(QMainWindow):
             
             self.ui.text_manual_output.setText(lsb_bits_to_string(msg_bits))
         except Exception as e:
-            self.show_error("手动解密崩溃", e)
+            self.show_error("Manual decryption crash", e)
 
     def logic_file_load(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Input File", "", "All Files (*)")
@@ -244,12 +236,11 @@ class GrainApp(QMainWindow):
 
     def logic_file_save_dir(self):
         is_encrypt = self.ui.radioButton_4.isChecked()
-        dialog_title = "设置保存路径 (加密文件)" if is_encrypt else "设置保存路径 (解密文件)"
+        dialog_title = "Set save path (for encrypted files)" if is_encrypt else "Set the save path (for decrypted files)."
         file_filter = "Encrypted Files (*.enc)" if is_encrypt else "Decrypted Files (*.dec)"
         
         file_name, _ = QFileDialog.getSaveFileName(self, dialog_title, "", file_filter)
         if file_name:
-            # 强制按模式补全相应的后缀
             if is_encrypt and not file_name.endswith(".enc"):
                 file_name += ".enc"
             elif not is_encrypt and not file_name.endswith(".dec"):
@@ -260,7 +251,7 @@ class GrainApp(QMainWindow):
         try:
             in_path = self.ui.input_file_path.text()
             out_path = self.ui.output_file_path.text()
-            if not in_path or not out_path: raise ValueError("请先设置输入和输出路径！")
+            if not in_path or not out_path: raise ValueError("Please set the input and output paths first!")
             
             engine = self._prepare_engine()
             with open(in_path, 'r', encoding='utf-8') as f:
@@ -271,15 +262,15 @@ class GrainApp(QMainWindow):
             cipher_hex = lsb_bits_to_hex(cipher_bits)
             
             self.file_handler.save_encrypted_file(self.ui.input_iv.text(), cipher_hex, out_path)
-            QMessageBox.information(self, "成功", "文件加密并打包IV成功！")
+            QMessageBox.information(self, "Success", "File encryption and IV packaging successful!")
         except Exception as e:
-            self.show_error("文件加密失败", e)
+            self.show_error("File encryption failed.", e)
 
     def logic_file_decrypt(self):
         try:
             in_path = self.ui.input_file_path.text()
             out_path = self.ui.output_file_path.text()
-            if not in_path or not out_path: raise ValueError("请先设置输入和输出路径！")
+            if not in_path or not out_path: raise ValueError("Please set the input and output paths first!")
             
             loaded_iv, cipher_hex = self.file_handler.load_encrypted_file(in_path)
             self.ui.input_iv.setText(loaded_iv) 
@@ -290,9 +281,9 @@ class GrainApp(QMainWindow):
             plaintext = lsb_bits_to_string(msg_bits)
             
             self.file_handler.save_decrypted_file(plaintext, out_path)
-            QMessageBox.information(self, "成功", "文件解密成功！")
+            QMessageBox.information(self, "Success", "File decryption successful!")
         except Exception as e:
-            self.show_error("文件解密失败", e)
+            self.show_error("File decryption failed.", e)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

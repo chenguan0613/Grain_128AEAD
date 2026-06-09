@@ -24,4 +24,4 @@ def string_to_lsb_bits(text):
 def lsb_bits_to_string(bit_list):
     hex_string=lsb_bits_to_hex(bit_list)
     byte_data=bytes.fromhex(hex_string[2:])
-    return byte_data.decode()
+    return byte_data.decode('utf-8', errors='replace')
