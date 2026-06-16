@@ -44,8 +44,6 @@ class GrainApp(QMainWindow):
         self.ui.btn_generate_key.clicked.connect(self.logic_generate_key)
         self.ui.btn_wrap_save.clicked.connect(self.logic_wrap_key)
         self.ui.btn_load_key.clicked.connect(self.logic_unwrap_key)
-        self.ui.btn_generate_aes_nonce.clicked.connect(self.logic_generate_aes_nonce)
-        self.ui.btn_generate_salt.clicked.connect(self.logic_generate_salt)
 
         #IV management block
         self.ui.btn_generate_iv.clicked.connect(self.logic_generate_iv)
@@ -120,12 +118,6 @@ class GrainApp(QMainWindow):
     def logic_generate_key(self):
         self.ui.input_key.setText("0x"+self.key_manager.generate_random_key_hex())
 
-    def logic_generate_aes_nonce(self):
-        self.ui.input_aes_nonce.setText("0x"+secrets.token_hex(12))
-
-    def logic_generate_salt(self):
-        self.ui.input_salt.setText("0x"+secrets.token_hex(16))
-
     def logic_generate_iv(self):
         if self.ui.check_auto_iv.isChecked():
             self.ui.input_iv.setText("0x" + secrets.token_hex(12)) 
@@ -143,7 +135,7 @@ class GrainApp(QMainWindow):
             nonce_val=self.ui.input_aes_nonce.text().strip()
 
             if not pwd or not key_hex:
-                raise ValueError("Password 和 Key cannot be empty")
+                raise ValueError("Password and Key cannot be empty")
             
             is_hex = (self.ui.combo_ad_mode.currentText() == "Hex")
             

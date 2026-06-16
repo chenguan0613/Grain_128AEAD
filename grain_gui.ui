@@ -237,32 +237,6 @@
        <string>Password for Wrapping</string>
       </property>
      </widget>
-     <widget class="QPushButton" name="btn_generate_aes_nonce">
-      <property name="geometry">
-       <rect>
-        <x>300</x>
-        <y>45</y>
-        <width>83</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Generate</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="btn_generate_salt">
-      <property name="geometry">
-       <rect>
-        <x>300</x>
-        <y>80</y>
-        <width>83</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Generate</string>
-      </property>
-     </widget>
     </widget>
     <widget class="QLabel" name="label_14">
      <property name="geometry">
@@ -290,7 +264,7 @@
       <rect>
        <x>120</x>
        <y>110</y>
-       <width>181</width>
+       <width>261</width>
        <height>25</height>
       </rect>
      </property>
@@ -321,7 +295,7 @@
       <rect>
        <x>120</x>
        <y>140</y>
-       <width>181</width>
+       <width>261</width>
        <height>25</height>
       </rect>
      </property>
@@ -352,7 +326,7 @@
       <rect>
        <x>120</x>
        <y>170</y>
-       <width>181</width>
+       <width>261</width>
        <height>25</height>
       </rect>
      </property>
