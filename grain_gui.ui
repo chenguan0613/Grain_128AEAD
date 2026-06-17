@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>832</width>
+    <width>825</width>
     <height>688</height>
    </rect>
   </property>
@@ -836,7 +836,7 @@
         <x>10</x>
         <y>40</y>
         <width>341</width>
-        <height>71</height>
+        <height>51</height>
        </rect>
       </property>
       <property name="placeholderText">
@@ -847,7 +847,7 @@
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>120</y>
+        <y>100</y>
         <width>151</width>
         <height>41</height>
        </rect>
@@ -867,7 +867,7 @@
       <property name="geometry">
        <rect>
         <x>190</x>
-        <y>120</y>
+        <y>100</y>
         <width>151</width>
         <height>41</height>
        </rect>
@@ -887,7 +887,7 @@
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>180</y>
+        <y>150</y>
         <width>141</width>
         <height>16</height>
        </rect>
@@ -900,16 +900,16 @@
        </font>
       </property>
       <property name="text">
-       <string>Output Result:</string>
+       <string>Output(Hex)</string>
       </property>
      </widget>
-     <widget class="QTextEdit" name="text_manual_output">
+     <widget class="QTextEdit" name="text_manual_output_hex">
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>200</y>
-        <width>341</width>
-        <height>61</height>
+        <y>170</y>
+        <width>161</width>
+        <height>91</height>
        </rect>
       </property>
       <property name="placeholderText">
@@ -920,13 +920,46 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>160</y>
+        <y>130</y>
         <width>341</width>
         <height>31</height>
        </rect>
       </property>
       <property name="orientation">
        <enum>Qt::Orientation::Horizontal</enum>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_16">
+      <property name="geometry">
+       <rect>
+        <x>190</x>
+        <y>150</y>
+        <width>141</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <family>Times New Roman</family>
+        <pointsize>11</pointsize>
+        <bold>false</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Output(ASCII)</string>
+      </property>
+     </widget>
+     <widget class="QTextEdit" name="text_manual_output_ascii">
+      <property name="geometry">
+       <rect>
+        <x>190</x>
+        <y>170</y>
+        <width>161</width>
+        <height>91</height>
+       </rect>
+      </property>
+      <property name="placeholderText">
+       <string/>
       </property>
      </widget>
     </widget>
@@ -1014,7 +1047,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>832</width>
+     <width>825</width>
      <height>33</height>
     </rect>
    </property>
