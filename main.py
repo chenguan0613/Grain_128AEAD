@@ -263,6 +263,7 @@ class GrainApp(QMainWindow):
 
     def logic_manual_decrypt(self):
         try:
+            engine = self._prepare_engine()
             input_hex = (
                 self.ui.text_manual_input.toPlainText().strip().replace("0x", "")
             )
@@ -274,8 +275,12 @@ class GrainApp(QMainWindow):
                 )
             extracted_iv = input_hex[:24]
             actual_ciphertext = input_hex[24:]
-            self.ui.input_iv.setText("0x" + extracted_iv)
-            engine = self._prepare_engine()
+            ui_iv = self.ui.input_iv.text().strip().replace("0x", "")
+            if extracted_iv != ui_iv:
+                raise ValueError(
+                    f"IV Mismatch! \nThey must match to proceed with decryption."
+                )
+
             cipher_bits = hex_to_lsb_bits(actual_ciphertext)
             msg_bits = engine.decrypt(cipher_bits)
             # ASCII output
