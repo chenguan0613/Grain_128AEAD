@@ -27,14 +27,15 @@ def resource_path(relative_path):
 class GrainApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        # Initialize the UI
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.setWindowTitle("Grain-128AEAD Cipher Console")
         self.setFixedSize(832, 655)
-
+        # Instantiate the backend management module
         self.key_manager = KeyManager()
         self.file_handler = FileHandler()
-
+        # Load the stylesheet and connect the signals and slots for all buttons
         self.load_stylesheet("style.qss")
         self.connect_signals()
 
@@ -68,23 +69,27 @@ class GrainApp(QMainWindow):
         self.ui.radioButton_5.toggled.connect(self.toggle_file_buttons)
         self.ui.radio_manual_encypt.toggled.connect(self.toggle_manual_buttons)
         self.ui.radio_manual_decrypt.toggled.connect(self.toggle_manual_buttons)
-
+        # Set the default state to "Encryption Mode"
         self.ui.radioButton_4.setChecked(True)
         self.ui.radio_manual_encypt.setChecked(True)
         self.toggle_file_buttons()
         self.toggle_manual_buttons()
 
     def toggle_file_buttons(self):
+        # Button interlocking in the control file processing area
         is_encrypt = self.ui.radioButton_4.isChecked()
         self.ui.btn_file_encrypt.setEnabled(is_encrypt)
         self.ui.btn_file_decrypt.setEnabled(not is_encrypt)
 
     def toggle_manual_buttons(self):
+        # Button interlocking in manual input area
         is_encrypt = self.ui.radio_manual_encypt.isChecked()
         self.ui.btn_manual_encrypt.setEnabled(is_encrypt)
         self.ui.btn_manual_decrypt.setEnabled(not is_encrypt)
 
     def show_error(self, title, exception_obj):
+        # Print the complete error stack trace in the background terminal
+        # Display a user-friendly MessageBox in the front end to inform the user where the error occurred
         error_details = traceback.format_exc()
         print(f"\n{'='*20} {title} {'='*20}")
         print(error_details)
@@ -103,7 +108,7 @@ class GrainApp(QMainWindow):
     def _prepare_engine(self):
         key_hex = self.ui.input_key.text().strip().replace("0x", "")
         iv_hex = self.ui.input_iv.text().strip().replace("0x", "")
-
+        # Cryptographic hard length verification
         if len(key_hex) != 32:
             raise ValueError(
                 f"Key length error! Must be 32-bit Hex characters (128-bit), currently {len(key_hex)} bits."
@@ -112,12 +117,12 @@ class GrainApp(QMainWindow):
             raise ValueError(
                 f"IV length error! Must be 24-bit Hex characters (96-bit), currently {len(iv_hex)} bits."
             )
-
+        # Format conversion
         key_bits = hex_to_lsb_bits(key_hex)
         iv_bits = hex_to_lsb_bits(iv_hex)
 
         engine = Grain128AEADv2()
-
+        # Perform loading and capture State after Loading
         engine.load_key_and_iv(key_bits, iv_bits)
         self.ui.state_nfsr_load.setText(
             "0x" + lsb_bits_to_hex(engine.NFSR)[2:].zfill(32)
@@ -125,7 +130,7 @@ class GrainApp(QMainWindow):
         self.ui.state_lfsr_load.setText(
             "0x" + lsb_bits_to_hex(engine.LFSR)[2:].zfill(32)
         )
-
+        # Execute 512 loops and capture State after initialization
         engine.initialise()
         self.ui.state_nfsr_init.setText(
             "0x" + lsb_bits_to_hex(engine.NFSR)[2:].zfill(32)
