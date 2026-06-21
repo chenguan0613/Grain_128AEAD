@@ -1,6 +1,37 @@
 
 # Cryptography Assignment
 
+## Project Architecture
+
+```bash
+GRAIN_128AEAD/
+│
+├── crypto_engine/
+│   ├── __init__.py
+│   └── grain_v2.py
+├── data/
+│   ├── case6.key
+│   └── keywrapping
+│
+├── file_io/
+│   ├── __init__.py
+│   └── file_handler.py
+│
+├── key_management/
+│   ├── __init__.py
+│   └── wrapper.py
+│
+├── utils/
+│   ├── __init__.py
+│   └── data_converters.py
+│
+├── requirements.txt
+├── main.py
+├── ui_grain.py
+├── grain_gui.ui
+└── style.qss
+```
+
 ## System Prerequisites
 
 ```bash
