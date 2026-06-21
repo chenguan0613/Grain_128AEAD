@@ -1,6 +1,10 @@
 
 # Cryptography Assignment
 
+## How to use？
+
+You can directly click the "main.exe" to use this application or follow the subsequent steps to configure the environment and run `python main.py`.
+
 ## Project Architecture
 
 ```bash
